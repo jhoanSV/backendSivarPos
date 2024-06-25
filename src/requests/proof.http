@@ -1,0 +1,28 @@
+@api = 'http://localhost:3000'
+
+GET {{api}/getClientList}{
+    Content-Type: application/json
+
+    {
+        "IdFerreteria": ""
+    }
+}
+
+
+PUT {{api}/putnewproduct} {
+    Content-Type: application/json
+
+    {
+        "IdFerreteria": "",
+        "Cod": "",
+		"Descripcion": "",
+		"Clase": "",
+		"SubCategoria": "",
+		"Detalle": "",
+        "PCosto": "",
+		"PVenta": "",
+		"InvMinimo": "",
+		"InvMaximo": "",
+		"Ubicacion": ""
+    }
+}
