@@ -6,9 +6,9 @@ GET {{api}/getClientList}{
     {
         "IdFerreteria": ""
     }
-}
+};
 
-
+###
 PUT {{api}/putnewproduct} {
     Content-Type: application/json
 
@@ -16,13 +16,13 @@ PUT {{api}/putnewproduct} {
         "IdFerreteria": "",
         "Cod": "",
 		"Descripcion": "",
-		"Clase": "",
 		"SubCategoria": "",
-		"Detalle": "",
         "PCosto": "",
 		"PVenta": "",
 		"InvMinimo": "",
 		"InvMaximo": "",
-		"Ubicacion": ""
+		"Ubicacion": "",
+		"Detalle": "",
+		"Clase": "",
     }
 }
