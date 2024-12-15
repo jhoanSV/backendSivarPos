@@ -30,7 +30,8 @@ import { putNewClient,
          getClientOcupation,
          postToRemsionToElectronic,
          getReturns,
-         getProfit} from '../controllers/tasks';
+         getProfit,
+         getPrintInvoice} from '../controllers/tasks';
 
 const router = Router();
 
@@ -109,6 +110,8 @@ router.post('/pos/toremsiontoelectronic', postToRemsionToElectronic)
 router.post('/pos/returns', getReturns)
 
 router.post('/pos/profit', getProfit)
+
+router.get('/pos/printinvoice', getPrintInvoice)
 
 //*Other Functions
 //router.post('/pos/inserSivarList', inserSivarList);
