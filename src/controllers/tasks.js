@@ -2364,7 +2364,7 @@ export const putCancelTheSale = async (req, res) => {
         let ImpuestosValue = 0;
         let Customer = req.body.Customer
         let CantidadProductos = 0
-
+        console.log(req.body)
         const toMoneyFlow = `INSERT INTO flujodedinero (ConsecutivoCV,
                                                                     IdFerreteria,
                                                                     Fecha,
@@ -2407,7 +2407,6 @@ export const putCancelTheSale = async (req, res) => {
 
         if (req.body.Cufe != '') {
             console.log('entro a nota credito')
-            console.log('req.body: ', req.body)
             const [logInColtek] = await connectSivar.query(`SELECT
                                                             Api,
                                                             Usuario,
@@ -2476,23 +2475,26 @@ export const putCancelTheSale = async (req, res) => {
             
             for (let product of req.body.Orden) {
                 if (product.CantidadSa - product.CantidadEn !== 0) {
+                    const totalPrice = (product.CantidadSa - product.CantidadEn) * product.VrUnitario
+                    const base = ((product.CantidadSa - product.CantidadEn) * product.VrUnitario) * (1/(1+product.Iva/100))
+                    const iva = totalPrice - base
                     const detProduct = {
                         CodigoInterno: product.ConsecutivoProd,
                         Nombre: product.Descripcion,
                         Cantidad: product.CantidadSa - product.CantidadEn,
                         PrecioUnitario: product.VrUnitario,
-                        Total: (product.CantidadSa - product.CantidadEn) * product.VrUnitario,
+                        Total: base,
                         Regalo: "false",
                         DescuentoYRecargos: [],
                         Impuestos: {
                             IVA: {
                                 Codigo: "01",
-                                Total: (product.CantidadSa - product.CantidadEn) * product.VrUnitario,
+                                Total: iva,
                                 porcentajes: [
                                     {
                                         porcentaje: product.Iva,
-                                        Base: ((product.CantidadSa - product.CantidadEn) * product.VrUnitario) * (1/(1+product.Iva/100)),
-                                        Total: (product.CantidadSa - product.CantidadEn) * product.VrUnitario
+                                        Base: base,
+                                        Total: iva
                                     }
                                 ]
                             }
@@ -2500,14 +2502,14 @@ export const putCancelTheSale = async (req, res) => {
                     }
                     const porcentaje = {
                         porcentaje: product.Iva,
-                        Base: ((product.CantidadSa - product.CantidadEn) * product.VrUnitario) * (1/(1+product.Iva/100)),
-                        Total: (product.CantidadSa - product.CantidadEn) * product.VrUnitario
+                        Base: base,
+                        Total: iva
                     }
                     articulos.push(detProduct);
                     porcentajes.push(porcentaje);
-                    total += (product.CantidadSa - product.CantidadEn) * product.VrUnitario
-                    Bruto += ((product.CantidadSa - product.CantidadEn) * product.VrUnitario) * (1/(1 + product.Iva/100))
-                    ImpuestosValue += ((product.CantidadSa - product.CantidadEn) * product.VrUnitario) * (product.Iva/100)
+                    total += totalPrice
+                    Bruto += base
+                    ImpuestosValue += iva
                     CantidadProductos += 1
                 }
             }
@@ -2515,18 +2517,18 @@ export const putCancelTheSale = async (req, res) => {
             const ElectronicData = {
                 Ambiente: ambiente,
                 Referencia: {
-                NumeroResolucion: req.body.Resolucion,
-                Factura: req.body.Prefijo + req.body.FacturaElectronica,
-                Cufe: req.body.Cufe,
-                Fecha: req.body.FechaActual.split(' ')[0],
-                Hora: req.body.FechaActual.split(' ')[1],
-                Prefijo: req.body.Prefijo,
-                Tipo_Reclamo: req.body.Tipo_Reclamo,
-                Descripcion_Reclamo: req.body.Descripcion_Reclamo
+                    NumeroResolucion: req.body.Resolucion,
+                    Factura: req.body.Prefijo + req.body.FacturaElectronica,
+                    Cufe: req.body.Cufe,
+                    Fecha: req.body.FechaFactura,
+                    Hora: req.body.HoraFactura,
+                    Prefijo: req.body.Prefijo,
+                    Tipo_Reclamo: req.body.Tipo_Reclamo,
+                    Descripcion_Reclamo: req.body.Descripcion_Reclamo
                 },
                 Factura: req.body.Prefijo + req.body.FacturaElectronica,
-                Fecha: req.body.FechaActual.split(' ')[0],
-                Hora: req.body.FechaActual.split(' ')[1],
+                Fecha: req.body.FechaActual,
+                Hora: req.body.HoraActual,
                 Observacion: "Observacion",
                 FormaDePago: "1",
                 MedioDePago: 10,
@@ -2550,6 +2552,7 @@ export const putCancelTheSale = async (req, res) => {
                     Impuestos: ImpuestosValue
                 },
             }
+            console.log(JSON.stringify(ElectronicData))
             //Para la factura electronica
             const resFElectronica = await fetch(`${logInColtek[0].Api}/api/v1/facturacion/credito/send`,{
                 method: 'POST',
@@ -2559,10 +2562,7 @@ export const putCancelTheSale = async (req, res) => {
                 body: JSON.stringify(ElectronicData)
             })
             const responceElectronicData = await resFElectronica.json()
-            //console.log('ElectronicData: ', ElectronicData)
-            console.log('responceElectronicData: ', responceElectronicData)
             if (responceElectronicData.Result.IsValid === "true") {
-                console.log('Entro a devolver articulo')
                 const valoresMoneyFlow = [req.body.Consecutivo,
                     req.body.IdFerreteria,
                     req.body.FechaActual,
