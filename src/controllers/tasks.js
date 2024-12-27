@@ -233,8 +233,10 @@ export const putNewProduct = async (req, res) => {
                                             ConsecutivoCompra,
                                             Medida,
                                             UMedida,
+                                            ConNCredito,
                                             NCredito)
                                         VALUES (?,
+                                                ?,
                                                 ?,
                                                 ?,
                                                 ?,
@@ -267,6 +269,7 @@ export const putNewProduct = async (req, res) => {
                             0,
                             '',
                             1,
+                            '',
                             '']
         await connection.execute(sql3, values3);
         // Confirm the transaction
@@ -411,7 +414,7 @@ export const getInventory = async (req, res) => {
                                                                                 e.ConsecutivoProd,
                                                                                 SUM(e.Cantidad / e.UMedida) AS entradas
                                                                             FROM
-                                                                                entradas e
+                                                                                entradas AS e
                                                                             WHERE
                                                                                 e.ConsecutivoProd = pro.Consecutivo
                                                                                 AND e.CodResponsable = ?
@@ -424,7 +427,7 @@ export const getInventory = async (req, res) => {
                                                                                 s.ConsecutivoProd,
                                                                                 SUM(s.Cantidad / s.UMedida) AS salidas
                                                                             FROM
-                                                                                salidas s
+                                                                                salidas As s
                                                                             WHERE
                                                                                 s.ConsecutivoProd = pro.Consecutivo
                                                                                 AND s.CodResponsable = ?
@@ -638,7 +641,8 @@ export const postAddProduct = async (req, res) => {
                                         ConsecutivoCompra,
                                         Medida,
                                         UMedida,
-                                        NCredito) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`
+                                        ConNCredito,
+                                        NCredito) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`
         const values = [
         NextCodInterno,
         req.body.IdFerreteria,
@@ -656,6 +660,7 @@ export const postAddProduct = async (req, res) => {
         req.body.ConsecutivoCompra,
         req.body.Medida,
         req.body.UMedida,
+        '',
         ''
         ]
         await connection.execute(addProductData, values);
@@ -719,27 +724,27 @@ export const postUpdateInventory = async(req, res) => {
         
         const [queryCantidad] = await connection.query(`SELECT
                                                         IFNULL(en.entradas, 0) - IFNULL(sa.salidas, 0) AS Cantidad
-                                                    FROM
-                                                        (SELECT
-                                                        COALESCE(e.ConsecutivoProd, ?) AS ConsecutivoProd,
-                                                        COALESCE(SUM(e.Cantidad), 0) AS entradas
                                                         FROM
-                                                        (SELECT ? AS ConsecutivoProd, 0 AS Cantidad) AS defaultValues
+                                                            (SELECT
+                                                            COALESCE(e.ConsecutivoProd, ?) AS ConsecutivoProd,
+                                                            COALESCE(SUM(e.Cantidad/ e.UMedida), 0) AS entradas
+                                                            FROM
+                                                            (SELECT ? AS ConsecutivoProd, 0 AS Cantidad) AS defaultValues
+                                                            LEFT JOIN
+                                                            entradas e ON e.ConsecutivoProd = ? AND e.CodResponsable = ?
+                                                            GROUP BY
+                                                            e.ConsecutivoProd) AS en
                                                         LEFT JOIN
-                                                        entradas e ON e.ConsecutivoProd = ? AND e.CodResponsable = ?
-                                                        GROUP BY
-                                                        e.ConsecutivoProd) AS en
-                                                    LEFT JOIN
-                                                        (SELECT
-                                                        COALESCE(s.ConsecutivoProd, ?) AS ConsecutivoProd,
-                                                        COALESCE(SUM(s.Cantidad), 0) AS salidas
-                                                        FROM
-                                                        (SELECT ? AS ConsecutivoProd, 0 AS Cantidad) AS defaultValues
-                                                        LEFT JOIN
-                                                        salidas s ON s.ConsecutivoProd = ? AND s.CodResponsable = ?
-                                                        GROUP BY
-                                                        s.ConsecutivoProd) AS sa
-                                                    ON en.ConsecutivoProd = sa.ConsecutivoProd`, [req.body.ConsecutivoProd,
+                                                            (SELECT
+                                                            COALESCE(s.ConsecutivoProd, ?) AS ConsecutivoProd,
+                                                            COALESCE(SUM(s.Cantidad/ s.UMedida), 0) AS salidas
+                                                            FROM
+                                                            (SELECT ? AS ConsecutivoProd, 0 AS Cantidad) AS defaultValues
+                                                            LEFT JOIN
+                                                            salidas s ON s.ConsecutivoProd = ? AND s.CodResponsable = ?
+                                                            GROUP BY
+                                                            s.ConsecutivoProd) AS sa
+                                                        ON en.ConsecutivoProd = sa.ConsecutivoProd`, [req.body.ConsecutivoProd,
                                                                                                     req.body.ConsecutivoProd,
                                                                                                     req.body.ConsecutivoProd,
                                                                                                     req.body.CodResponsable,
@@ -748,10 +753,11 @@ export const postUpdateInventory = async(req, res) => {
                                                                                                     req.body.ConsecutivoProd,
                                                                                                     req.body.CodResponsable]);
         const cantidadactual = parseFloat(queryCantidad[0].Cantidad);
-        value = Math.abs(cantidadactual-req.body.Cantidad)
         const difference = req.body.Cantidad - cantidadactual
+        value = Math.abs(difference)
         if (difference > 0) {
-        const sql1 = `INSERT INTO entradas (CodInterno,
+            console.log('Llega a entradas: ')
+            const sql1 = `INSERT INTO entradas (CodInterno,
                                             IdFerreteria,
                                             ConsecutivoProd,		      
                                             Cantidad,
@@ -767,8 +773,10 @@ export const postUpdateInventory = async(req, res) => {
                                             ConsecutivoCompra,
                                             Medida,
                                             UMedida,
+                                            ConNCredito,
                                             NCredito)
                                         VALUES (?,
+                                                ?,
                                                 ?,
                                                 ?,
                                                 ?,
@@ -801,6 +809,7 @@ export const postUpdateInventory = async(req, res) => {
                             0,
                             '',
                             1,
+                            '',
                             '']
         await connection.execute(sql1, values1);
         } else if (difference < 0) { 
@@ -1311,6 +1320,7 @@ export const putAddPurchase = async (req, res) => {
                                 ConsecutivoCompra,
                                 Medida,
                                 UMedida,
+                                ConNCredito,
                                 NCredito
                                 )
         VALUES ?
@@ -1349,6 +1359,7 @@ export const putAddPurchase = async (req, res) => {
             'C-' + commonValues.ConsecutivoCompra,
             'Unidades',
             1,
+            '',
             ''
         ]);
         }
@@ -1846,50 +1857,71 @@ export const putNewSale = async (req, res) => {
             let totalBruto = 0;
             let total = 0;
             let totalImpuestos = 0;
-            let detImpuestos = {}
             let porcentajes = []
+
+            const agrupados = {}; // Objeto para agrupar los datos por porcentaje
+
             for (const product of req.body.Order) {
-            const detProduct = {
-                "CodigoInterno": product.Consecutivo,
-                "Nombre": product.Descripcion,
-                "Cantidad": product.Cantidad,
-                "PrecioUnitario": product.PVenta,
-                "Total": ((product.Cantidad * product.PVenta)/(1+(product.Iva/100))),
-                "Regalo": "false",
-                "DescuentoYRecargos": [],
-                "Impuestos": {
-                                "IVA": {
-                                "Codigo": "01",
-                                "Total": (product.Cantidad * product.PVenta)-((product.Cantidad * product.PVenta)/(1+(product.Iva/100))),
-                                "porcentajes": [
-                                    {
-                                    "porcentaje": product.Iva,
-                                    "Base": (product.Cantidad * product.PVenta)/(1+(product.Iva/100)),
-                                    "Total": (product.Cantidad * product.PVenta)-((product.Cantidad * product.PVenta)/(1+(product.Iva/100)))
+                const totalPrice = (product.Cantidad * product.PVenta)
+                const base = (product.Cantidad * product.PVenta)/(1+(product.Iva/100))
+                const iva = totalPrice - base
+                const detProduct = {
+                    "CodigoInterno": product.Consecutivo,
+                    "Nombre": product.Descripcion,
+                    "Cantidad": product.Cantidad,
+                    "PrecioUnitario": product.PVenta,
+                    "Total": base,
+                    "Regalo": "false",
+                    "DescuentoYRecargos": [],
+                    "Impuestos": {
+                                    "IVA": {
+                                    "Codigo": "01",
+                                    "Total": iva,
+                                    "porcentajes": [
+                                        {
+                                        "porcentaje": product.Iva,
+                                        "Base": base,
+                                        "Total": iva
+                                        }
+                                    ]
                                     }
-                                ]
                                 }
-                            }
+                }
+                /*porcentajes.push({
+                    "porcentaje": product.Iva,
+                    "Base": (product.Cantidad * product.PVenta)/(1+(product.Iva/100)),
+                    "Total": (product.Cantidad * product.PVenta) - (product.Cantidad * product.PVenta)/(1+(product.Iva/100))
+                })*/
+
+                if (!agrupados[product.Iva]) {
+                    agrupados[product.Iva] = {
+                        porcentaje: product.Iva,
+                        Base: 0,
+                        Total: 0
+                    };
+                }
+            
+                // Suma los valores de Base y Total para el porcentaje correspondiente
+                agrupados[product.Iva].Base += base;
+                agrupados[product.Iva].Total += iva;
+
+                totalBruto += ((product.Cantidad * product.PVenta)/(1+product.Iva/100))
+                total += product.Cantidad * product.PVenta
+                //detImpuestos.IVA.Total = total
+                //detImpuestos.IVA.porcentajes = porcentajes
+                totalImpuestos += (product.Cantidad * product.PVenta)-((product.Cantidad * product.PVenta)/(1+(product.Iva/100)))
+                articulos.push(detProduct)
             }
-            porcentajes.push({
-                "porcentaje": product.Iva,
-                "Base": (product.Cantidad * product.PVenta)/(1+(product.Iva/100)),
-                "Total": (product.Cantidad * product.PVenta) - (product.Cantidad * product.PVenta)/(1+(product.Iva/100))
-            })
-            totalBruto += ((product.Cantidad * product.PVenta)/(1+product.Iva/100))
-            total += product.Cantidad * product.PVenta
-            //detImpuestos.IVA.Total = total
-            //detImpuestos.IVA.porcentajes = porcentajes
-            totalImpuestos += (product.Cantidad * product.PVenta)-((product.Cantidad * product.PVenta)/(1+(product.Iva/100)))
-            articulos.push(detProduct)
+            for (const key in agrupados) {
+                porcentajes.push(agrupados[key]);
             }
             const Totales = {
-            Bruto: totalBruto,
-            "BaseImpuestos": totalBruto,
-            "Descuentos": 0,
-            "Cargos": 0,
-            "APagar": total,
-            "Impuestos": totalImpuestos
+                Bruto: totalBruto,
+                "BaseImpuestos": totalBruto,
+                "Descuentos": 0,
+                "Cargos": 0,
+                "APagar": total,
+                "Impuestos": totalImpuestos
             }
             ElectronicData.Articulos = articulos
             ElectronicData.Totales = Totales
@@ -2325,6 +2357,7 @@ export const putNewOutput = async (req, res) => {
                                                                     ConsecutivoCompra,
                                                                     Medida,
                                                                     UMedida,
+                                                                    ConNCredito,
                                                                     NCredito)
                                                             VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`, [req.body.CodInterno,
                                                                                                           req.body.IdFerreteria,
@@ -2342,6 +2375,7 @@ export const putNewOutput = async (req, res) => {
                                                                                                           req.body.ConsecutivoCompra,
                                                                                                           req.body.Medida,
                                                                                                           req.body.UMedida,
+                                                                                                          '',
                                                                                                           '']);
             res.status(200).json({ message: 'Transacción completada con éxito' });
     } catch (error) {
@@ -2364,7 +2398,6 @@ export const putCancelTheSale = async (req, res) => {
         let ImpuestosValue = 0;
         let Customer = req.body.Customer
         let CantidadProductos = 0
-        console.log(req.body)
         const toMoneyFlow = `INSERT INTO flujodedinero (ConsecutivoCV,
                                                                     IdFerreteria,
                                                                     Fecha,
@@ -2402,11 +2435,11 @@ export const putCancelTheSale = async (req, res) => {
                                                     ConsecutivoCompra,
                                                     Medida,
                                                     UMedida,
+                                                    ConNCredito,
                                                     NCredito)
-                                            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`
+                                            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`
 
         if (req.body.Cufe != '') {
-            console.log('entro a nota credito')
             const [logInColtek] = await connectSivar.query(`SELECT
                                                             Api,
                                                             Usuario,
@@ -2414,7 +2447,19 @@ export const putCancelTheSale = async (req, res) => {
                                                         FROM
                                                             resoluciones
                                                         WHERE
-                                                            IdFerreteria = ?`, [req.body.IdFerreteria]);
+                                                            IdFerreteria = ?`, [req.body.IdFerreteria])
+
+            const [ConCredito] = await connection.query(`SELECT 
+                                                                ConNCredito,
+                                                                IFNULL(NCredito + 1, 1) AS NCredito
+                                                            FROM 
+                                                                entradas
+                                                            WHERE 
+                                                                IdFerreteria = ?
+                                                            AND
+                                                                NCredito = (SELECT MAX(NCredito) FROM entradas WHERE IdFerreteria = ?)`,
+                                                                                                                            [req.body.IdFerreteria,
+                                                                                                                            req.body.IdFerreteria]);
         
             const [Resolucion] = await connectSivar.query(`SELECT
                                                         NumeroResolucion,
@@ -2473,6 +2518,8 @@ export const putCancelTheSale = async (req, res) => {
                 }
             }
             
+            const agrupados = {}; // Objeto para agrupar los datos por porcentaje
+
             for (let product of req.body.Orden) {
                 if (product.CantidadSa - product.CantidadEn !== 0) {
                     const totalPrice = (product.CantidadSa - product.CantidadEn) * product.VrUnitario
@@ -2505,13 +2552,29 @@ export const putCancelTheSale = async (req, res) => {
                         Base: base,
                         Total: iva
                     }
+
+                    if (!agrupados[product.Iva]) {
+                        agrupados[product.Iva] = {
+                            porcentaje: product.Iva,
+                            Base: 0,
+                            Total: 0
+                        };
+                    }
+                
+                    // Suma los valores de Base y Total para el porcentaje correspondiente
+                    agrupados[product.Iva].Base += base;
+                    agrupados[product.Iva].Total += iva;
                     articulos.push(detProduct);
-                    porcentajes.push(porcentaje);
+                    //porcentajes.push(porcentaje);
                     total += totalPrice
                     Bruto += base
                     ImpuestosValue += iva
                     CantidadProductos += 1
                 }
+            }
+
+            for (const key in agrupados) {
+                porcentajes.push(agrupados[key]);
             }
             
             const ElectronicData = {
@@ -2522,24 +2585,24 @@ export const putCancelTheSale = async (req, res) => {
                     Cufe: req.body.Cufe,
                     Fecha: req.body.FechaFactura,
                     Hora: req.body.HoraFactura,
-                    Prefijo: req.body.Prefijo,
+                    Prefijo: ConCredito[0].ConNCredito,
                     Tipo_Reclamo: req.body.Tipo_Reclamo,
                     Descripcion_Reclamo: req.body.Descripcion_Reclamo
                 },
-                Factura: req.body.Prefijo + req.body.FacturaElectronica,
+                Factura: ConCredito[0].ConNCredito + ConCredito[0].NCredito,//req.body.Prefijo + req.body.FacturaElectronica,
                 Fecha: req.body.FechaActual,
                 Hora: req.body.HoraActual,
                 Observacion: "Observacion",
                 FormaDePago: "1",
                 MedioDePago: 10,
-                FechaVencimiento: req.body.FechaActual.split(' ')[0],
+                FechaVencimiento: req.body.FechaActual,
                 CantidadArticulos: CantidadProductos,
                 Cliente: Customer,
                 Articulos: articulos,
                 Impuestos: {
                     IVA: {
                     Codigo: "01",
-                    Total: total,
+                    Total: ImpuestosValue,
                     porcentajes: porcentajes
                     }
                 },
@@ -2552,7 +2615,7 @@ export const putCancelTheSale = async (req, res) => {
                     Impuestos: ImpuestosValue
                 },
             }
-            console.log(JSON.stringify(ElectronicData))
+            console.log('ElectronicData: ', JSON.stringify(ElectronicData))
             //Para la factura electronica
             const resFElectronica = await fetch(`${logInColtek[0].Api}/api/v1/facturacion/credito/send`,{
                 method: 'POST',
@@ -2562,6 +2625,7 @@ export const putCancelTheSale = async (req, res) => {
                 body: JSON.stringify(ElectronicData)
             })
             const responceElectronicData = await resFElectronica.json()
+            console.log('responceElectronicData: ', JSON.stringify(responceElectronicData))
             if (responceElectronicData.Result.IsValid === "true") {
                 const valoresMoneyFlow = [req.body.Consecutivo,
                     req.body.IdFerreteria,
@@ -2583,7 +2647,7 @@ export const putCancelTheSale = async (req, res) => {
                                                 product.Cod,
                                                 product.Descripcion,
                                                 product.VrCosto,
-                                                0,
+                                                product.VrUnitario,
                                                 req.body.FechaActual,
                                                 product.Iva,
                                                 req.body.IdFerreteria,
@@ -2592,7 +2656,8 @@ export const putCancelTheSale = async (req, res) => {
                                                 req.body.Consecutivo,
                                                 product.Medida,
                                                 product.UMedida,
-                                                responceElectronicData.Result.Codigo]
+                                                ConCredito[0].ConNCredito,
+                                                ConCredito[0].NCredito]
                         await connection.query(returnProducts, valoresEntradas);
                     }
                 }
@@ -2630,6 +2695,7 @@ export const putCancelTheSale = async (req, res) => {
                                             req.body.Consecutivo,
                                             product.Medida,
                                             product.UMedida,
+                                            '',
                                             '']
                     await connection.query(returnProducts, valoresEntradas);
                 }
@@ -2700,42 +2766,48 @@ export const getSubClases = async (req, res) => {
     }
 }
 
+//* All about study
 export const getSalesByCategory = async (req, res) => {
     const connection = await connectDBSivarPos();
     try {
         const [salesByCategory] = await connection.query(`SELECT
-                                                            ca.Categoria,
-                                                            ca.ColorCategoria,
-                                                            SUM(Cantidad * Vrunitario) AS ventas,
-                                                            SUM(Cantidad * VrCosto) - IFNULL(en.Devoluciones, 0) AS Costos
-                                                        FROM
-                                                            salidas AS sa
-                                                        LEFT JOIN
-                                                            productos AS pro ON sa.ConsecutivoProd = pro.Consecutivo
-                                                        LEFT JOIN
-                                                            subcategorias AS sc ON sc.IdSubCategoria = pro.SubCategoria
-                                                        LEFT JOIN
-                                                            categorias AS ca ON ca.IdCategoria = sc.IdCategoria
-                                                        LEFT JOIN
-                                                            (SELECT
-                                                            ca.Categoria,
-                                                            SUM(Cantidad * PCosto) AS Devoluciones
+                                                                ca.Categoria,
+                                                                ca.ColorCategoria,
+                                                                SUM(sa.Cantidad * sa.Vrunitario) AS ventas,
+                                                                SUM(sa.Cantidad * (sa.VrUnitario - sa.VrCosto)) - IFNULL(en.Devoluciones, 0) AS Ganancias
                                                             FROM
-                                                            entradas AS en
+                                                                salidas AS sa
                                                             LEFT JOIN
-                                                            productos AS pro ON en.ConsecutivoProd = pro.Consecutivo
+                                                                productos AS pro ON sa.ConsecutivoProd = pro.Consecutivo
                                                             LEFT JOIN
-                                                            subcategorias AS sc ON sc.IdSubCategoria = pro.SubCategoria
+                                                                subcategorias AS sc ON sc.IdSubCategoria = pro.SubCategoria
                                                             LEFT JOIN
-                                                            categorias AS ca ON ca.IdCategoria = sc.IdCategoria
+                                                                categorias AS ca ON ca.IdCategoria = sc.IdCategoria
+                                                            LEFT JOIN
+                                                                (SELECT
+                                                                    ca.Categoria,
+                                                                    SUM(en.Cantidad * (en.PCostoLP - en.PCosto)) AS Devoluciones
+                                                                FROM
+                                                                    entradas AS en
+                                                                LEFT JOIN
+                                                                    productos AS pro ON en.ConsecutivoProd = pro.Consecutivo
+                                                                LEFT JOIN
+                                                                    subcategorias AS sc ON sc.IdSubCategoria = pro.SubCategoria
+                                                                LEFT JOIN
+                                                                    categorias AS ca ON ca.IdCategoria = sc.IdCategoria
+                                                                WHERE
+                                                                    en.IdFerreteria = ? AND en.Motivo = 'Devolución mercancia' AND DATE(en.Fecha) BETWEEN ? AND ?
+                                                                GROUP BY
+                                                                    ca.Categoria) AS en ON en.Categoria = ca.Categoria
                                                             WHERE
-                                                            en.IdFerreteria = ? AND en.Motivo = 'Devolución mercancia' AND DATE(en.Fecha) = ?
+                                                                sa.IdFerreteria = ? AND sa.Motivo = 'Venta por caja' AND DATE(sa.Fecha) BETWEEN ? AND ?
                                                             GROUP BY
-                                                            ca.Categoria) AS en ON en.Categoria = ca.Categoria
-                                                        WHERE
-                                                            sa.IdFerreteria = ? AND sa.Motivo = 'Venta por caja' AND DATE(sa.Fecha) = ?
-                                                        GROUP BY
-                                                            ca.Categoria`,[req.body.IdFerreteria, req.body.Fecha, req.body.IdFerreteria, req.body.Fecha])
+                                                                ca.Categoria`,[req.body.IdFerreteria,
+                                                                                req.body.FechaMin,
+                                                                                req.body.FechaMax,
+                                                                                req.body.IdFerreteria,
+                                                                                req.body.FechaMin,
+                                                                                req.body.FechaMax])
         res.status(200).json(salesByCategory)
     } catch (error) {
         console.error("Error en la función SalesByCategory: ", error);
@@ -2750,24 +2822,185 @@ export const getBestProducts = async (req, res) => {
     const connection = await connectDBSivarPos();
     try {
         const [bestProducts] = await connection.query(`SELECT
-                                                            sa.ConsecutivoProd,
-                                                            pro.Cod,
-                                                            SUM(sa.Cantidad/sa.UMedida) AS cantidad,
-                                                            pro.Descripcion
-                                                        FROM
-                                                            salidas AS sa
-                                                        LEFT JOIN
-                                                            productos AS pro ON pro.Consecutivo = sa.ConsecutivoProd
-                                                        WHERE
-                                                            sa.IdFerreteria = ? AND DATE(sa.Fecha) = ?
-                                                        GROUP BY
-                                                            sa.ConsecutivoProd
-                                                        ORDER BY
-                                                            SUM(sa.Cantidad/sa.UMedida) DESC
-                                                        LIMIT 5`,[req.body.IdFerreteria, req.body.Fecha])
-        res.status(200).json(bestProducts)
+                                                        sa.ConsecutivoProd,
+                                                        pro.Cod,
+                                                        pro.Descripcion,
+                                                        SUM(sa.Cantidad/sa.UMedida) * VrUnitario AS Valor
+                                                    FROM
+                                                        salidas AS sa
+                                                    LEFT JOIN
+                                                        productos AS pro ON pro.Consecutivo = sa.ConsecutivoProd
+                                                    WHERE
+                                                        sa.IdFerreteria = ? AND DATE(sa.Fecha) BETWEEN ? AND ?
+                                                    GROUP BY
+                                                        sa.ConsecutivoProd
+                                                    ORDER BY
+                                                        SUM(sa.Cantidad/sa.UMedida) * VrUnitario DESC
+                                                    LIMIT 10`,[req.body.IdFerreteria, req.body.FechaMin, req.body.FechaMax])
+
+        const [bestProfits] = await connection.query(`SELECT
+                                                        sa.ConsecutivoProd,
+                                                        pro.Cod,
+                                                        pro.Descripcion,
+                                                        (SUM(sa.Cantidad/sa.UMedida) * VrUnitario) - (SUM(sa.Cantidad/sa.UMedida) * VrCosto) AS Valor
+                                                    FROM
+                                                        salidas AS sa
+                                                    LEFT JOIN
+                                                        productos AS pro ON pro.Consecutivo = sa.ConsecutivoProd
+                                                    WHERE
+                                                        sa.IdFerreteria = ? AND DATE(sa.Fecha) BETWEEN ? AND ?
+                                                    GROUP BY
+                                                        sa.ConsecutivoProd
+                                                    ORDER BY
+                                                        (SUM(sa.Cantidad/sa.UMedida) * VrUnitario) - (SUM(sa.Cantidad/sa.UMedida) * VrCosto) DESC
+                                                    LIMIT 10`,[req.body.IdFerreteria, req.body.FechaMin, req.body.FechaMax])
+        res.status(200).json({BestProducts: bestProducts, BestProfits: bestProfits})
     } catch (error) {
         console.error("Error en la función SalesByCategory: ", error);
+        res.status(500).json(error);
+    } finally {
+        // Close the connection
+        await connection.end();
+    }
+}
+
+export const getStudies = async (req, res) => {
+    const connection = await connectDBSivarPos();
+    try {
+        console.log('req.body.Type: ', req.body.Type)
+        let newQuery = ''
+        if (req.body.Type === 'Year') {
+            newQuery = `SELECT
+                            MONTH(sa.Fecha) AS DiaSemana, -- Obtiene el día de la semana para la tabla principal
+                            SUM(sa.Cantidad * sa.Vrunitario) AS Ventas, -- Ventas calculadas
+                            SUM(sa.Cantidad * (sa.VrUnitario - sa.VrCosto)) - IFNULL(en.Devoluciones, 0) AS Ganancias
+                        FROM
+                            salidas AS sa
+                        LEFT JOIN
+                            productos AS pro ON sa.ConsecutivoProd = pro.Consecutivo
+                        LEFT JOIN
+                            (SELECT
+                                MONTH(en.Fecha) AS DiaSemana, -- Día de la semana para devoluciones
+                                SUM(en.Cantidad * (en.PCostoLP - en.PCosto)) AS Devoluciones
+                            FROM
+                                entradas AS en
+                            WHERE
+                                en.IdFerreteria = ? AND en.Motivo = 'Devolución mercancia'
+                                AND DATE(en.Fecha) BETWEEN ? AND ?
+                            GROUP BY
+                                MONTH(en.Fecha) -- Agrupación por día de la semana
+                            ) AS en ON en.DiaSemana = MONTH(sa.Fecha) -- Relación por día de la semana
+                        WHERE
+                            sa.IdFerreteria = ?
+                            AND
+                            sa.Motivo = 'Venta por caja'
+                            AND
+                            DATE(sa.Fecha) BETWEEN ? AND ?
+                        GROUP BY
+                            MONTH(sa.Fecha)`
+        } else if (req.body.Type === 'Month') {
+            newQuery = `SELECT
+                            DAY(sa.Fecha) AS DiaSemana, -- Obtiene el día de la semana para la tabla principal
+                            SUM(sa.Cantidad * sa.Vrunitario) AS Ventas,
+                            SUM(sa.Cantidad * (sa.VrUnitario - sa.VrCosto)) - IFNULL(en.Devoluciones, 0) AS Ganancias
+                        FROM
+                            salidas AS sa
+                        LEFT JOIN
+                            productos AS pro ON sa.ConsecutivoProd = pro.Consecutivo
+                        LEFT JOIN
+                            (SELECT
+                                DAY(en.Fecha) AS DiaSemana, -- Día de la semana para devoluciones
+                                SUM(en.Cantidad * (en.PCostoLP - en.PCosto)) AS Devoluciones
+                            FROM
+                                entradas AS en
+                            WHERE
+                                en.IdFerreteria = ? AND en.Motivo = 'Devolución mercancia'
+                                AND DATE(en.Fecha) BETWEEN ? AND ?
+                            GROUP BY
+                                DAY(en.Fecha) -- Agrupación por día de la semana
+                            ) AS en ON en.DiaSemana = sa.Fecha -- Relación por día de la semana
+                        WHERE
+                            sa.IdFerreteria = ?
+                            AND
+                            sa.Motivo = 'Venta por caja'
+                            AND
+                            DATE(sa.Fecha) BETWEEN ? AND ?
+                        GROUP BY
+                            DAY(sa.Fecha)`
+        } else if (req.body.Type ===  'Week') {
+            newQuery = `SELECT
+                            ELT(DAYOFWEEK(sa.Fecha),
+                                'Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'
+                            ) AS DiaSemana, -- Obtiene el día de la semana para la tabla principal
+                            SUM(sa.Cantidad * sa.Vrunitario) AS Ventas, -- Ventas calculadas
+                            SUM(sa.Cantidad * (sa.VrUnitario - sa.VrCosto)) - IFNULL(en.Devoluciones, 0) AS Ganancias
+                        FROM
+                            salidas AS sa
+                        LEFT JOIN
+                            productos AS pro ON sa.ConsecutivoProd = pro.Consecutivo
+                        LEFT JOIN
+                            (SELECT
+                                DAYOFWEEK(en.Fecha) AS DiaSemana, -- Día de la semana para devoluciones
+                                SUM(en.Cantidad * (en.PCostoLP - en.PCosto)) AS Devoluciones
+                            FROM
+                                entradas AS en
+                            WHERE
+                                en.IdFerreteria = ? AND en.Motivo = 'Devolución mercancia'
+                                AND DATE(en.Fecha) BETWEEN ? AND ?
+                            GROUP BY
+                                DAYOFWEEK(en.Fecha) -- Agrupación por día de la semana
+                            ) AS en ON en.DiaSemana = DAYOFWEEK(sa.Fecha) -- Relación por día de la semana
+                        WHERE
+                            sa.IdFerreteria = ?
+                            AND
+                            sa.Motivo = 'Venta por caja'
+                            AND
+                            DATE(sa.Fecha) BETWEEN ? AND ?
+                        GROUP BY
+                            DAYOFWEEK(sa.Fecha)
+                        ORDER BY
+                            DAYOFWEEK(sa.Fecha)`
+        } else {
+            newQuery = `SELECT
+                            DATE(sa.Fecha) AS DiaSemana, -- Obtiene el día de la semana para la tabla principal
+                            SUM(sa.Cantidad * sa.Vrunitario) AS Ventas, -- Ventas calculadas
+                            SUM(sa.Cantidad * (sa.VrUnitario - sa.VrCosto)) - IFNULL(en.Devoluciones, 0) AS Ganancias
+                        FROM
+                            salidas AS sa
+                        LEFT JOIN
+                            productos AS pro ON sa.ConsecutivoProd = pro.Consecutivo
+                        LEFT JOIN
+                            (SELECT
+                                DATE(en.Fecha) AS DiaSemana, -- Día de la semana para devoluciones
+                                SUM(en.Cantidad * (en.PCostoLP - en.PCosto)) AS Devoluciones
+                            FROM
+                                entradas AS en
+                            WHERE
+                                en.IdFerreteria = ? AND en.Motivo = 'Devolución mercancia'
+                                AND DATE(en.Fecha) BETWEEN ? AND ?
+                            GROUP BY
+                                DATE(en.Fecha) -- Agrupación por día de la semana
+                            ) AS en ON en.DiaSemana = sa.Fecha -- Relación por día de la semana
+                        WHERE
+                            sa.IdFerreteria = ?
+                            AND
+                            sa.Motivo = 'Venta por caja'
+                            AND
+                            DATE(sa.Fecha) BETWEEN ? AND ?
+                        GROUP BY
+                            DATE(sa.Fecha)`
+        }
+        const values = [req.body.IdFerreteria,
+                        req.body.FechaMin,
+                        req.body.FechaMax,
+                        req.body.IdFerreteria,
+                        req.body.FechaMin,
+                        req.body.FechaMax
+                        ]
+        const [theQuery] = await connection.query(newQuery, values)
+        res.status(200).json(theQuery)
+    } catch (error) {
+        console.error("Error en la función getStudies: ", error);
         res.status(500).json(error);
     } finally {
         // Close the connection

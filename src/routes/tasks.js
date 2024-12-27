@@ -31,7 +31,8 @@ import { putNewClient,
          postToRemsionToElectronic,
          getReturns,
          getProfit,
-         getPrintInvoice} from '../controllers/tasks';
+         getPrintInvoice,
+         getStudies} from '../controllers/tasks';
 
 const router = Router();
 
@@ -93,25 +94,28 @@ router.post('/pos/removeflow', updateRemoveFlow);
 
 router.post('/pos/newoutput', putNewOutput)
 
-router.post('/pos/cancelthesale', putCancelTheSale)
+router.post('/pos/cancelthesale', putCancelTheSale);
 
+//*All about studies
 router.post('/pos/crdetail', getCRDetail);
 
 router.post('/pos/bestProducts', getBestProducts);
 
-router.post('/pos/salesbycategory', getSalesByCategory)
+router.post('/pos/salesbycategory', getSalesByCategory);
 
-router.get('/tasks/datalogincoltek', getDataLoginColtek)
+router.post('/pos/studies', getStudies);
 
-router.get('/pos/clientocupation', getClientOcupation)
+router.get('/tasks/datalogincoltek', getDataLoginColtek);
 
-router.post('/pos/toremsiontoelectronic', postToRemsionToElectronic)
+router.get('/pos/clientocupation', getClientOcupation);
 
-router.post('/pos/returns', getReturns)
+router.post('/pos/toremsiontoelectronic', postToRemsionToElectronic);
 
-router.post('/pos/profit', getProfit)
+router.post('/pos/returns', getReturns);
 
-router.get('/pos/printinvoice', getPrintInvoice)
+router.post('/pos/profit', getProfit);
+
+router.get('/pos/printinvoice', getPrintInvoice);
 
 //*Other Functions
 //router.post('/pos/inserSivarList', inserSivarList);
