@@ -352,7 +352,7 @@ export const getProductList = async (req, res) => {
                                                             ) AS sa ON pro.Consecutivo = sa.ConsecutivoProd
                                                             LEFT JOIN clases AS cla ON cla.Id = pro.Clase
                                                         WHERE
-                                                            pro.IdFerreteria = '' OR pro.IdFerreteria = ?`, [req.body.IdFerreteria,
+                                                            (pro.IdFerreteria = '' OR pro.IdFerreteria = ?) AND pro.Consecutivo <> '1' AND pro.Consecutivo <> '9254'`, [req.body.IdFerreteria,
                                                                                                             req.body.IdFerreteria,
                                                                                                             req.body.IdFerreteria,
                                                                                                             req.body.IdFerreteria,
@@ -2143,7 +2143,8 @@ export const getSalesPerDay = async (req, res) => {
                                                     cv.Cufe,
                                                     cv.Resolucion,
                                                     flu.Efectivo,
-                                                    flu.Transferencia
+                                                    flu.Transferencia,
+                                                    flu.Comentarios
                                                 FROM
                                                     cabeceraventas AS cv
                                                 LEFT JOIN
