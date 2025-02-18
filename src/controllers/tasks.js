@@ -305,7 +305,7 @@ export const getProductList = async (req, res) => {
                                                             subca.IdSubCategoria,
                                                             pro.Clase,
                                                             cla.Nombre AS NombreClase,
-                                                            pro.Detalle,
+                                                            dpro.Detalle,
                                                             CAST(COALESCE(en.entradas, 0) - COALESCE(sa.salidas, 0) AS DOUBLE) AS Inventario,
                                                             CASE 
                                                                 WHEN EXISTS (
@@ -444,7 +444,7 @@ export const getInventory = async (req, res) => {
                                                             det.InvMaximo,
                                                             pro.Iva,
                                                             pro.Clase,
-                                                            pro.Detalle,
+                                                            det.Detalle,
                                                             pro.SubCategoria AS IdSubCategoria,
                                                             sc.SubCategoria,
                                                             sc.IdCategoria,
@@ -542,7 +542,8 @@ export const postUpdateProduct = async (req, res) => {
             PVenta = ?,
             InvMinimo = ?,
             InvMaximo = ?,
-            Ubicacion = ?
+            Ubicacion = ?,
+            Detalle = ?
         WHERE
             Consecutivo = ? AND IdFerreteria = ?`
         : 
@@ -554,8 +555,9 @@ export const postUpdateProduct = async (req, res) => {
             PVenta,
             InvMinimo,
             InvMaximo,
-            Ubicacion)
-        VALUES (?, ?, ?, ?, ?, ?, ?)`;
+            Ubicacion,
+            Detalle)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)`;
 
         const detalleProductoValues = isUpdate ? [
         req.body.PCosto,
@@ -564,7 +566,8 @@ export const postUpdateProduct = async (req, res) => {
         req.body.InvMaximo,
         req.body.Ubicacion,
         req.body.ConsecutivoProd,
-        req.body.IdFerreteria
+        req.body.IdFerreteria,
+        req.body.Detalle
         ] : [
         req.body.ConsecutivoProd,
         req.body.IdFerreteria,
@@ -572,7 +575,8 @@ export const postUpdateProduct = async (req, res) => {
         req.body.PVenta,
         req.body.InvMinimo,
         req.body.InvMaximo,
-        req.body.Ubicacion
+        req.body.Ubicacion,
+        req.body.Detalle
         ];
         // Ejecutar la consulta para detalleproductoferreteria
         await connection.execute(detalleProductoSql, detalleProductoValues);
@@ -715,8 +719,7 @@ export const postUpdateInventory = async(req, res) => {
         const [productData] = await connection.query(`SELECT
                                                         pro.Cod,
                                                         pro.Descripcion,
-                                                        pro.subcategoria,
-                                                        pro.Detalle
+                                                        pro.subcategoria
                                                     FROM
                                                         productos AS pro
                                                     WHERE
@@ -907,7 +910,7 @@ export const getShoppingList = async (req, res) => {
                                                             det.InvMinimo,
                                                             det.InvMaximo,
                                                             ca.Categoria,
-                                                            pro.Detalle,
+                                                            det.Detalle,
                                                             pro.Iva,
                                                             pro.SVenta,
                                                             pro.Clase
@@ -2687,7 +2690,7 @@ export const putCancelTheSale = async (req, res) => {
                                             product.Cod,
                                             product.Descripcion,
                                             product.VrCosto,
-                                            0,
+                                            product.VrUnitario,
                                             req.body.FechaActual,
                                             product.Iva,
                                             req.body.IdFerreteria,
@@ -3345,6 +3348,7 @@ export const getClientOcupation = async (req, res) => {
                                             FROM
                                                 ocupaciones`);
         res.status(200).json(rows);
+        console.log(rows)
     } catch (error) {
         console.error(error);
         //res.status(403).json({ error: 'Invalid token' });
