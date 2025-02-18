@@ -179,15 +179,17 @@ export const putNewProduct = async (req, res) => {
                                                             PVenta,
                                                             InvMinimo,
                                                             InvMaximo,
-                                                            Ubicacion)
-                                        VALUES (?,?,?,?,?,?,?)`
+                                                            Ubicacion,
+                                                            Detalle)
+                                        VALUES (?,?,?,?,?,?,?,?)`
         const values2 = [Consecutivo,
                             req.body.IdFerreteria,
                             req.body.PCosto,
                             req.body.PVenta,
                             req.body.InvMinimo,
                             req.body.InvMaximo,
-                            req.body.Ubicacion]
+                            req.body.Ubicacion,
+                            req.body.Detalle]
         await connection.execute(sql2, values2);
 
         const sqlMedidas = `INSERT INTO
@@ -499,7 +501,7 @@ export const postUpdateProduct = async (req, res) => {
     const connection = await connectDBSivarPos();
     try {
         await connection.beginTransaction();
-
+        console.log("update data: ", req.body)
         // Actualizar el producto principal
         const updateProductSql = `
         UPDATE productos
@@ -508,7 +510,6 @@ export const postUpdateProduct = async (req, res) => {
             Descripcion = ?,
             Clase = ?,
             SubCategoria = ?,
-            Detalle = ?,
             Iva = ?
         WHERE
             Consecutivo = ?`;
@@ -517,7 +518,6 @@ export const postUpdateProduct = async (req, res) => {
         req.body.Descripcion,
         req.body.Clase,
         req.body.IdSubCategoria,
-        req.body.Detalle,
         req.body.Iva,
         req.body.ConsecutivoProd
         ];
@@ -525,11 +525,11 @@ export const postUpdateProduct = async (req, res) => {
         // Verificar si ya existe el producto en detalleproductoferreteria
         const [queryCantidad] = await connection.query(`
                                                         SELECT
-                                                        Consecutivo
+                                                            Consecutivo
                                                         FROM
-                                                        detalleproductoferreteria
+                                                            detalleproductoferreteria
                                                         WHERE
-                                                        Consecutivo = ? AND IdFerreteria = ?`, 
+                                                            Consecutivo = ? AND IdFerreteria = ?`, 
                                                         [req.body.ConsecutivoProd, req.body.IdFerreteria]);
         // Construir las consultas y valores para detalleproductoferreteria y medida
         const isUpdate = queryCantidad.length > 0;
@@ -565,9 +565,9 @@ export const postUpdateProduct = async (req, res) => {
         req.body.InvMinimo,
         req.body.InvMaximo,
         req.body.Ubicacion,
+        req.body.Detalle,
         req.body.ConsecutivoProd,
-        req.body.IdFerreteria,
-        req.body.Detalle
+        req.body.IdFerreteria
         ] : [
         req.body.ConsecutivoProd,
         req.body.IdFerreteria,
@@ -2631,11 +2631,15 @@ export const putCancelTheSale = async (req, res) => {
             const responceElectronicData = await resFElectronica.json()
             console.log('responceElectronicData: ', JSON.stringify(responceElectronicData))
             if (responceElectronicData.Result.IsValid === "true") {
+                const total = req.body.Orden.reduce((sum, product) => {
+                    return sum + ((product.CantidadSa - product.CantidadEn) * product.VrUnitario);
+                }, 0);
+                
                 const valoresMoneyFlow = [req.body.Consecutivo,
                     req.body.IdFerreteria,
                     req.body.FechaActual,
                     '',
-                    req.body.Efectivo,
+                    total,
                     0,
                     'Devolución mercancia',
                     '',
@@ -2670,16 +2674,21 @@ export const putCancelTheSale = async (req, res) => {
                 res.status(400).json(responceElectronicData)
             }
         } else {
+            const total = req.body.Orden.reduce((sum, product) => {
+                return sum + ((product.CantidadSa - product.CantidadEn) * product.VrUnitario);
+            }, 0);
+            
             const valoresMoneyFlow = [req.body.Consecutivo,
                                       req.body.IdFerreteria,
                                       req.body.FechaActual,
                                       '',
-                                      req.body.Efectivo,
+                                      total,
                                       0,
                                       'Devolución mercancia',
                                       '',
                                       true,
                                       true]
+            console.log("Devoluciones req.boy.efectivo: ", req.body.Efectivo)
             await connection.query(toMoneyFlow, valoresMoneyFlow);
             for (let product of req.body.Orden) {
                 if (product.CantidadSa - product.CantidadEn !== 0) {
@@ -2720,16 +2729,16 @@ export const getCRDetail = async (req, res) => {
     const connection = await connectDBSivarPos();
     try {
         const [cashflow] = await connection.query(`SELECT
-                                                    fd.Motivo,
-                                                    fd.TipoDeFlujo,
-                                                    SUM(fd.Efectivo) AS Efectivo,
-                                                    SUM(fd.Transferencia) AS Transferencia
-                                                FROM
-                                                    flujodedinero AS fd
-                                                WHERE
-                                                    fd.IdFerreteria = ? AND fd.Activo = '1' AND DATE(fd.Fecha) = ?
-                                                GROUP BY
-                                                    fd.Motivo, fd.TipoDeFlujo`,[req.body.IdFerreteria, req.body.Fecha])
+                                                        fd.Motivo,
+                                                        fd.TipoDeFlujo,
+                                                        SUM(fd.Efectivo) AS Efectivo,
+                                                        SUM(fd.Transferencia) AS Transferencia
+                                                    FROM
+                                                        flujodedinero AS fd
+                                                    WHERE
+                                                        fd.IdFerreteria = ? AND fd.Activo = '1' AND DATE(fd.Fecha) = ?
+                                                    GROUP BY
+                                                        fd.Motivo, fd.TipoDeFlujo`,[req.body.IdFerreteria, req.body.Fecha])
         const dictionary = {};
 
         cashflow.forEach(item => {
@@ -3045,13 +3054,21 @@ export const getProfit = async (req, res) => {
     const connection = await connectDBSivarPos();
     try {
         const [bestProducts] = await connection.query(`SELECT
-                                                            IFNULL(SUM(sa.Cantidad * (sa.VrUnitario - sa.VrCosto)),0) AS Ganancia
-                                                        FROM
-                                                            salidas AS sa
-                                                        WHERE
-                                                                sa.CodResponsable = ?
-                                                            AND
-                                                                DATE(sa.Fecha) = ?`,[req.body.IdFerreteria, req.body.Fecha])
+                                                            SUM(IF(t.tabla = 'salidas', t.Ganancia, -t.Ganancia)) AS Ganancia
+                                                        FROM (
+                                                            SELECT 'salidas' AS tabla, SUM(sa.Cantidad * (sa.VrUnitario - sa.VrCosto)) AS Ganancia
+                                                            FROM salidas AS sa
+                                                            WHERE sa.CodResponsable = ?
+                                                            AND DATE(sa.Fecha) = ?
+                                                            
+                                                            UNION ALL
+                                                            
+                                                            SELECT 'entradas' AS tabla, SUM(en.Cantidad * (en.PCostoLP - en.PCosto)) AS Ganancia
+                                                            FROM entradas AS en
+                                                            WHERE en.Motivo = 'Devolución mercancia'
+                                                            AND en.CodResponsable = ?
+                                                            AND DATE(en.Fecha) = ?
+                                                        ) AS t`,[req.body.IdFerreteria, req.body.Fecha, req.body.IdFerreteria, req.body.Fecha])
         res.status(200).json(bestProducts)
     } catch (error) {
         console.error("Error en la función getProfit: ", error);
